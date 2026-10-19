@@ -1,4 +1,4 @@
-import { state, register, baseName, run } from './state.js';
+import { state, register, baseName, listCommands, run } from './state.js';
 import {
   activeTab,
   checkTab,
@@ -35,6 +35,7 @@ import {
   renderProblems,
   runFailedToStart,
   runSize,
+  setTermTheme,
 } from './bottom.js';
 import { focusSearch, findInFiles } from './search.js';
 import {
@@ -48,6 +49,8 @@ import {
   restoreGrok,
 } from './grok.js';
 import { closePalette, openChoices, openHelp, openPalette, openQuick, openRecent } from './palette.js';
+import { toggleTheme } from './theme.js';
+import { installSteps } from '../../shared/ollama.js';
 import { ask, toast } from './ui.js';
 
 let workspaceTimer = 0;
@@ -64,7 +67,7 @@ export function registerAll() {
   register('project.examples', () => openExamples(), { title: 'Open MAGIC examples', group: file });
   register('project.close', () => closeProject(), { title: 'Close folder', shortcut: 'Ctrl+Shift+W', group: file });
   register('file.open', () => openLooseFile(), { title: 'Open file', shortcut: 'Ctrl+Shift+O', group: file });
-  register('file.openPath', (filePath) => openPath(filePath), { title: 'Open path', group: file });
+  register('file.openPath', (filePath) => openPath(filePath), { title: 'Open path', group: file, menu: false });
   register('file.new', () => openUntitled(), { title: 'New MAGIC file', shortcut: 'Alt+Insert', group: file });
   register('file.newInTree', () => document.querySelector('#tree')?.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, clientX: 80, clientY: 120 })), { title: 'New file in folder', group: file });
   register('file.save', () => saveTab(), { title: 'Save', shortcut: 'Ctrl+S', group: file });
@@ -93,27 +96,29 @@ export function registerAll() {
   register('view.minimap', () => toggleMinimap(), { title: 'Toggle minimap', group: view });
   register('view.indent', () => cycleIndent(), { title: 'Cycle indent size', group: view });
   register('view.eol', () => toggleEol(), { title: 'Toggle line endings', group: view });
-  if (state.info?.grokPath) {
-    register('grok.toggle', () => toggleGrok(), { title: 'Toggle Ask panel', shortcut: 'Alt+9', group: ask });
-  }
+  register('view.theme', () => toggleTheme(), { title: 'Toggle theme', group: view });
+  register('view.complete', () => toggleComplete(), { title: 'Toggle ghost text', group: view });
+  register('grok.toggle', () => toggleGrok(), { title: 'Toggle Ask panel', shortcut: 'Alt+9', group: ask });
   register('terminal.toggle', () => toggleTerminal(), { title: 'Terminal', shortcut: 'Alt+F12', group: view });
-  register('help.keys', () => openHelp(), { title: 'Keyboard shortcuts', group: view });
+  register('help.keys', () => openHelp(), { title: 'Keyboard shortcuts', group: 'Help' });
+  register('help.local', () => showLocalHelp(), { title: 'Local AI', group: 'Help' });
 
   register('run.start', () => startRun(), { title: 'Run', shortcut: 'Shift+F10', group: runGroup });
   register('run.preview', () => preview(), { title: 'Preview', shortcut: 'Ctrl+Shift+F10', group: runGroup });
   register('run.stop', () => stopRun(), { title: 'Stop', shortcut: 'Ctrl+F2', group: runGroup });
   register('run.check', () => checkTab(activeTab(), { quiet: false }), { title: 'Check', shortcut: 'Ctrl+F9', group: runGroup });
-  register('run.config', (value) => setRunConfig(value), { title: 'Select run configuration', group: runGroup });
+  register('run.config', (value) => setRunConfig(value), { title: 'Select run configuration', group: runGroup, menu: false });
 
+  register('grok.focus', () => focusGrok(), { title: 'Ask', group: ask });
+  register('grok.explainFile', () => explainFile(), { title: 'Explain file', group: ask });
+  register('grok.explainSelection', () => explainSelection(), { title: 'Explain selection', group: ask });
+  register('grok.problems', () => askProblems(), { title: 'Look for problems', group: ask });
   if (state.info?.grokPath) {
-    register('grok.focus', () => focusGrok(), { title: 'Ask', group: ask });
-    register('grok.explainFile', () => explainFile(), { title: 'Explain file', group: ask });
-    register('grok.explainSelection', () => explainSelection(), { title: 'Explain selection', group: ask });
-    register('grok.problems', () => askProblems(), { title: 'Look for problems', group: ask });
     register('grok.session', () => openSession(), { title: 'Open session in terminal', group: ask });
-    register('grok.new', () => newChat(), { title: 'New chat', group: ask });
   }
+  register('grok.new', () => newChat(), { title: 'New chat', group: ask });
   register('tab.next', () => nextTab(1), { title: 'Next editor', shortcut: 'Ctrl+Tab', group: view });
+  buildMenus();
   register('tab.prev', () => nextTab(-1), { title: 'Previous editor', shortcut: 'Ctrl+Shift+Tab', group: view });
 }
 
@@ -220,8 +225,96 @@ function showSide(name) {
   saveWorkspace();
 }
 
+function canAsk() {
+  return Boolean(state.info?.grokPath || state.info?.ollama?.ok);
+}
+
+function toggleComplete() {
+  state.settings.inlineComplete = state.settings.inlineComplete === false;
+  window.studio.settingsSet({ inlineComplete: state.settings.inlineComplete });
+  state.editor?.updateOptions({ inlineSuggest: { enabled: state.settings.inlineComplete !== false } });
+  refreshStatus();
+  if (state.settings.inlineComplete && !state.info?.ollama?.completeModel) {
+    toast('Ghost text is on. It starts when the complete model is installed. Help → Local AI.');
+    return;
+  }
+  toast(state.settings.inlineComplete ? 'Ghost text on' : 'Ghost text off');
+}
+
+function showLocalHelp() {
+  ask({
+    title: 'Local AI',
+    message: installSteps(state.info?.aiDir),
+    wide: true,
+    buttons: [{ id: 'ok', label: 'Close', primary: true }],
+  });
+}
+
+let openMenu = null;
+
+function closeMenu() {
+  openMenu?.remove();
+  openMenu = null;
+  for (const button of document.querySelectorAll('.menubar > button.open')) button.classList.remove('open');
+}
+
+function buildMenus() {
+  const host = document.getElementById('menubar');
+  if (!host) return;
+  host.innerHTML = '';
+  const groups = new Map();
+  for (const command of listCommands()) {
+    if (!groups.has(command.group)) groups.set(command.group, []);
+    if (command.menu === false) continue;
+    groups.get(command.group).push(command);
+  }
+  for (const name of ['File', 'Edit', 'View', 'Run', 'Ask', 'Help']) {
+    const items = groups.get(name);
+    if (!items?.length) continue;
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.textContent = name;
+    button.addEventListener('click', (event) => {
+      event.stopPropagation();
+      if (button.classList.contains('open')) {
+        closeMenu();
+        return;
+      }
+      closeMenu();
+      const pop = document.createElement('div');
+      pop.className = 'menu-pop';
+      pop.setAttribute('role', 'menu');
+      for (const command of items) {
+        const item = document.createElement('button');
+        item.type = 'button';
+        const label = document.createElement('span');
+        label.textContent = command.title;
+        const shortcut = document.createElement('span');
+        shortcut.className = 'menu-key';
+        shortcut.textContent = command.shortcut || '';
+        item.append(label, shortcut);
+        item.addEventListener('click', () => {
+          closeMenu();
+          run(command.id);
+        });
+        pop.appendChild(item);
+      }
+      document.body.appendChild(pop);
+      const rect = button.getBoundingClientRect();
+      pop.style.left = `${Math.max(4, rect.left)}px`;
+      pop.style.top = `${rect.bottom + 2}px`;
+      button.classList.add('open');
+      openMenu = pop;
+    });
+    host.appendChild(button);
+  }
+}
+
 function toggleGrok() {
-  if (!state.info?.grokPath) return;
+  if (!canAsk()) {
+    showLocalHelp();
+    return;
+  }
   state.grokOpen = !state.grokOpen;
   state.hooks.layout?.();
   saveWorkspace();
@@ -401,6 +494,14 @@ export function refreshStatus() {
   document.getElementById('status-lang').textContent = cursor.language || '—';
   document.getElementById('status-eol').textContent = cursor.eol;
   document.getElementById('status-indent').textContent = `Spaces: ${cursor.indent}`;
+  const themeButton = document.getElementById('status-theme');
+  if (themeButton) themeButton.textContent = state.settings.theme === 'light' ? 'Light' : 'Black';
+  const completeButton = document.getElementById('status-complete');
+  if (completeButton) {
+    const on = state.settings.inlineComplete !== false;
+    completeButton.textContent = on ? 'Complete' : 'Complete off';
+    completeButton.classList.toggle('on', on);
+  }
   const count = problems().length;
   const problemsEl = document.getElementById('status-problems');
   problemsEl.textContent = count ? `${count} problem${count === 1 ? '' : 's'}` : 'No problems';
@@ -463,7 +564,7 @@ function restoreWorkspace(workspace) {
   if (workspace.sidebar) state.sidebar = workspace.sidebar;
   if (typeof workspace.sideOpen === 'boolean') state.sideOpen = workspace.sideOpen;
   if (typeof workspace.grokOpen === 'boolean') state.grokOpen = workspace.grokOpen;
-  if (!state.info?.grokPath) state.grokOpen = false;
+  if (!canAsk()) state.grokOpen = false;
   if (typeof workspace.bottomOpen === 'boolean') state.bottomOpen = workspace.bottomOpen;
   if (workspace.bottomTab) state.bottomTab = workspace.bottomTab;
   if (workspace.sizes?.side) state.sideW = workspace.sizes.side;
@@ -501,6 +602,7 @@ export function wireHooks() {
   state.hooks.refreshOutline = refreshOutline;
   state.hooks.saveWorkspace = saveWorkspace;
   state.hooks.focusBottom = focusBottom;
+  state.hooks.onTheme = (name) => setTermTheme(name);
   state.hooks.pickDefinition = (choices) => {
     openChoices('Declarations', choices.map((choice) => ({
       title: choice.label,
@@ -571,7 +673,18 @@ export function bindChrome() {
     state.bottomOpen = true;
     layout();
   }, true);
-  window.addEventListener('keydown', onKey);
+  document.addEventListener('mousedown', (event) => {
+    if (!openMenu) return;
+    if (event.target.closest('.menu-pop') || event.target.closest('.menubar')) return;
+    closeMenu();
+  });
+  window.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape' && openMenu) {
+      closeMenu();
+      return;
+    }
+    onKey(event);
+  });
   window.addEventListener('dragover', (event) => event.preventDefault());
   window.addEventListener('drop', onDrop);
   window.studio.on('menu:command', (id) => {

@@ -1,4 +1,5 @@
 import { state, baseName, dirName, languageOf, relativePath } from './state.js';
+import { defineStudioThemes, editorThemeId } from './theme.js';
 import { ask, toast } from './ui.js';
 
 const KEYWORDS = [
@@ -43,7 +44,7 @@ export function initEditor(hooks) {
   Object.assign(state.hooks, hooks);
   registerMagic();
   state.editor = monaco.editor.create($editor(), {
-    theme: 'magic-dark',
+    theme: editorThemeId(),
     fontFamily: '"JetBrains Mono", "Fira Mono", "DejaVu Sans Mono", monospace',
     fontSize: state.settings.fontSize || 14,
     tabSize: state.settings.tabSize || 2,
@@ -63,8 +64,12 @@ export function initEditor(hooks) {
     padding: { top: 8, bottom: 12 },
     mouseWheelZoom: true,
     linkedEditing: true,
-    quickSuggestions: { other: true, comments: false, strings: false },
-    suggest: { preview: true, showKeywords: true },
+    quickSuggestions: { other: true, comments: false, strings: true },
+    quickSuggestionsDelay: 60,
+    suggestOnTriggerCharacters: true,
+    acceptSuggestionOnEnter: 'on',
+    inlineSuggest: { enabled: state.settings.inlineComplete !== false, mode: 'subword' },
+    suggest: { preview: true, showKeywords: true, showWords: true, showSnippets: true },
     detectIndentation: true,
     trimAutoWhitespace: true,
     dragAndDrop: true,
@@ -125,49 +130,8 @@ function $editor() {
 function registerMagic() {
   if (registered) return;
   registered = true;
-  monaco.editor.defineTheme('magic-dark', {
-    base: 'vs-dark',
-    inherit: true,
-    rules: [
-      { token: 'keyword', foreground: 'CF8E6D' },
-      { token: 'constant', foreground: 'CF8E6D' },
-      { token: 'string', foreground: '6AAB73' },
-      { token: 'comment', foreground: '7A7E85', fontStyle: 'italic' },
-      { token: 'number', foreground: '2AACB8' },
-      { token: 'annotation', foreground: 'E7C98A' },
-      { token: 'function', foreground: 'FFC66D' },
-      { token: 'type', foreground: 'B5B6E3' },
-      { token: 'predefined', foreground: 'FFC66D' },
-      { token: 'operator', foreground: 'FFFFFF' },
-      { token: 'identifier', foreground: 'FFFFFF' },
-      { token: 'delimiter.interpolation', foreground: 'E7C98A' },
-    ],
-    colors: {
-      'editor.background': '#000000',
-      'editor.foreground': '#ffffff',
-      'editor.lineHighlightBackground': '#141414',
-      'editor.selectionBackground': '#1a3a6e',
-      'editor.inactiveSelectionBackground': '#14283f',
-      'editorCursor.foreground': '#ffffff',
-      'editorLineNumber.foreground': '#5c5c5c',
-      'editorLineNumber.activeForeground': '#ffffff',
-      'editorIndentGuide.background1': '#2a2a2a',
-      'editorIndentGuide.activeBackground1': '#5c5c5c',
-      'editorWidget.background': '#0a0a0a',
-      'editorWidget.border': '#2a2a2a',
-      'editorSuggestWidget.background': '#0a0a0a',
-      'editorSuggestWidget.border': '#2a2a2a',
-      'editorSuggestWidget.selectedBackground': '#1a3a6e',
-      'editorHoverWidget.background': '#0a0a0a',
-      'editorHoverWidget.border': '#2a2a2a',
-      'minimap.background': '#000000',
-      'editorGutter.background': '#000000',
-      'scrollbarSlider.background': '#2a2a2a88',
-      'scrollbarSlider.hoverBackground': '#3a3a3a88',
-      'editorStickyScroll.background': '#000000',
-      'focusBorder': '#3574f0',
-    },
-  });
+  defineStudioThemes();
+  monaco.editor.setTheme(editorThemeId());
 
   monaco.languages.register({ id: 'magic', extensions: ['.magic'], aliases: ['MAGIC', 'magic'] });
   monaco.languages.setLanguageConfiguration('magic', {
@@ -311,6 +275,7 @@ function registerMagic() {
           label: keyword,
           kind: monaco.languages.CompletionItemKind.Keyword,
           insertText: keyword,
+          sortText: `0${keyword}`,
           range,
         });
       }
@@ -321,6 +286,7 @@ function registerMagic() {
           insertText: `${name}($0)`,
           insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
           detail: 'Built-in',
+          sortText: `1${name}`,
           range,
         });
       }
@@ -330,9 +296,28 @@ function registerMagic() {
       snippet('for … end', 'for ${1:i} = ${2:1} to ${3:10}\n\t$0\nend', 'Counted loop');
       snippet('while … end', 'while ${1:cond}\n\t$0\nend', 'While');
       snippet('try … end', 'try\n\t$0\ncatch err\n\t\nend', 'Try');
+      for (const item of wordSuggestions(model, position, new Set(KEYWORDS.map((word) => word.toLowerCase())))) {
+        suggestions.push(item);
+      }
       return { suggestions };
     },
   });
+  for (const language of ['javascript', 'typescript', 'python', 'html', 'css', 'json', 'markdown', 'yaml', 'shell', 'plaintext']) {
+    monaco.languages.registerCompletionItemProvider(language, {
+      provideCompletionItems(model, position) {
+        return { suggestions: wordSuggestions(model, position) };
+      },
+    });
+  }
+  const inlineLanguages = ['magic', 'javascript', 'typescript', 'python', 'html', 'css', 'json', 'markdown', 'yaml', 'shell', 'plaintext'];
+  for (const language of inlineLanguages) {
+    monaco.languages.registerInlineCompletionsProvider(language, {
+      provideInlineCompletions(model, position, context, token) {
+        return inlineCompletion(model, position, context, token);
+      },
+      freeInlineCompletions() {},
+    });
+  }
   monaco.languages.registerHoverProvider('magic', {
     provideHover(model, position) {
       const word = model.getWordAtPosition(position);
@@ -365,6 +350,130 @@ function registerMagic() {
         })),
       };
     },
+  });
+}
+
+function wordSuggestions(model, position, skip = new Set()) {
+  const word = model.getWordUntilPosition(position);
+  const range = {
+    startLineNumber: position.lineNumber,
+    endLineNumber: position.lineNumber,
+    startColumn: word.startColumn,
+    endColumn: word.endColumn,
+  };
+  const seen = new Set(skip);
+  const suggestions = [];
+  const add = (label, kind, detail, sort) => {
+    const key = String(label || '').toLowerCase();
+    if (!key || seen.has(key) || key === word.word.toLowerCase()) return;
+    seen.add(key);
+    suggestions.push({
+      label,
+      kind,
+      insertText: label,
+      detail,
+      sortText: `${sort}${label}`,
+      range,
+    });
+  };
+  for (const symbol of scanSymbols(model)) {
+    add(symbol.name, monaco.languages.CompletionItemKind.Function, symbol.kind, '2');
+  }
+  for (const symbol of state.symbols || []) {
+    add(symbol.name, monaco.languages.CompletionItemKind.Function, symbol.kind || 'symbol', '2');
+  }
+  for (const name of collectWords(model)) {
+    add(name, monaco.languages.CompletionItemKind.Text, 'In this file', '3');
+  }
+  return suggestions;
+}
+
+function collectWords(model) {
+  const found = [];
+  const seen = new Set();
+  const re = /[A-Za-z_][A-Za-z0-9_]{2,}/g;
+  const text = model.getValue();
+  const slice = text.length > 120000 ? text.slice(0, 120000) : text;
+  let match = re.exec(slice);
+  while (match) {
+    const key = match[0].toLowerCase();
+    if (!seen.has(key)) {
+      seen.add(key);
+      found.push(match[0]);
+      if (found.length >= 120) break;
+    }
+    match = re.exec(slice);
+  }
+  return found;
+}
+
+let inlineProbeAt = 0;
+
+function inlineCompletion(model, position, context, token) {
+  if (state.settings?.inlineComplete === false) return { items: [] };
+  const line = model.getLineContent(position.lineNumber);
+  const before = line.slice(0, Math.max(0, position.column - 1));
+  if (before.trim().startsWith('--')) return { items: [] };
+  const prefix = model.getValue().slice(0, model.getOffsetAt(position));
+  if (!prefix.trim()) return { items: [] };
+  const delay = context?.triggerKind === 1 ? 0 : 380;
+  return new Promise((resolve) => {
+    let settled = false;
+    const finish = (value) => {
+      if (settled) return;
+      settled = true;
+      resolve(value);
+    };
+    const timer = setTimeout(async () => {
+      if (token.isCancellationRequested) {
+        finish({ items: [] });
+        return;
+      }
+      const readyName = () => {
+        const info = state.info?.ollama;
+        if (!info?.ok) return '';
+        if (info.completeModel) return info.completeModel;
+        if (info.chatModel && (info.loaded || []).includes(info.chatModel)) return info.chatModel;
+        return '';
+      };
+      let modelName = readyName();
+      if (!modelName && Date.now() - inlineProbeAt > 15000) {
+        inlineProbeAt = Date.now();
+        try {
+          const status = await window.studio.ollamaStatus();
+          if (state.info) state.info.ollama = status;
+          modelName = readyName();
+        } catch {
+          modelName = '';
+        }
+      }
+      if (!modelName || token.isCancellationRequested) {
+        finish({ items: [] });
+        return;
+      }
+      const offset = model.getOffsetAt(position);
+      const value = model.getValue();
+      const prefix = value.slice(Math.max(0, offset - 2000), offset);
+      const suffix = value.slice(offset, offset + 800);
+      let result = null;
+      try {
+        result = await window.studio.ollamaComplete({ prefix, suffix, model: modelName });
+      } catch {
+        result = null;
+      }
+      if (token.isCancellationRequested || !result?.text) {
+        finish({ items: [] });
+        return;
+      }
+      // A zero-width range inserts at the cursor. Monaco's default range
+      // rewrites the rest of the line and then hides a middle that does not match it.
+      const range = new monaco.Range(position.lineNumber, position.column, position.lineNumber, position.column);
+      finish({ items: [{ insertText: result.text, range }] });
+    }, delay);
+    token.onCancellationRequested(() => {
+      clearTimeout(timer);
+      finish({ items: [] });
+    });
   });
 }
 
@@ -898,6 +1007,7 @@ export function applySettings() {
     wordWrap: state.settings.wordWrap || 'off',
     minimap: { enabled: state.settings.minimap !== false },
     tabSize: state.settings.tabSize || 2,
+    inlineSuggest: { enabled: state.settings.inlineComplete !== false },
   });
   for (const tab of state.tabs) {
     tab.model?.updateOptions({ tabSize: state.settings.tabSize || 2, insertSpaces: true });

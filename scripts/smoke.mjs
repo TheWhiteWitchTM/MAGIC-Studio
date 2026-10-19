@@ -3,6 +3,17 @@ import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { fuzzyScore, parseProblems } from '../src/shared/text.js';
+import {
+  buildCompletionPrompt,
+  cleanCompletion,
+  extractReplacement,
+  installSteps,
+  pickModels,
+  trimOverlap,
+  usableCompletion,
+  usesFim,
+} from '../src/shared/ollama.js';
+import { DEFAULTS } from '../src/services/store.js';
 import { checkSource, findMagic, findNode, packPreview } from '../src/services/magic.js';
 import { mapGrokEvent, pushGrokChunk } from '../src/services/grok.js';
 import { createProject, indexSymbols } from '../src/services/files.js';
@@ -49,6 +60,21 @@ check('preview pack writes a window', packed.ok && fs.existsSync(path.join(packe
 const project = await createProject(dir, 'sample');
 const symbols = await indexSymbols(project.dir);
 check('indexes fn greet', symbols.symbols.some((item) => item.name === 'greet' && item.kind === 'fn'));
+
+check('theme starts black', DEFAULTS.theme === 'black');
+check('ghost text starts on', DEFAULTS.inlineComplete === true);
+const picked = pickModels(['qwen3.5:4b', 'writer', 'qwen2.5-coder:1.5b', 'coder:latest', 'complete:latest']);
+check('picks coder for chat', picked.chatModel === 'coder:latest');
+check('picks complete for ghost text', picked.completeModel === 'complete:latest');
+check('qwen2.5-coder uses fim tokens', usesFim('qwen2.5-coder:1.5b') && buildCompletionPrompt('complete', 'pri', '\nend').prompt.includes('<|fim_prefix|>'));
+check('a chat model gets a plain prompt', !buildCompletionPrompt('qwen3.5:4b', 'pri', '').raw);
+check('cleans a fenced completion', cleanCompletion('```magic\nprint 1\n```') === 'print 1');
+check('drops an echoed line', trimOverlap('print ', 'print "hi"') === '"hi"');
+check('drops a copied tail', trimOverlap('.. ', 'name .. "!"\nend', '\nend\n') === 'name .. "!"');
+check('drops an explanation', usableCompletion('The code you provided is written in Lua and then it keeps talking') === '');
+check('keeps a short insert', usableCompletion('name .. "!"') === 'name .. "!"');
+check('extracts a rewrite', extractReplacement('Sure.\n```\nfn greet()\nend\n```') === 'fn greet()\nend');
+check('install steps name both models', installSteps('/tmp/ai').includes('qwen2.5-coder:1.5b') && installSteps('/tmp/ai').includes('/tmp/ai/coder.Modelfile'));
 
 if (failed) {
   console.error(`${failed} failed`);

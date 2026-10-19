@@ -1,6 +1,6 @@
 # MAGIC Studio
 
-A dark IDE for the MAGIC language. It is an Electron app: a project tree, a Monaco editor, a run console, and a terminal. The window is white text on black.
+A dark IDE for the MAGIC language. It is an Electron app: a project tree, a Monaco editor, a run console, and a terminal. It starts black: black background, white text, and syntax colors. The status bar says Black. Click it to switch to a light theme. The choice is remembered.
 
 ## Start
 
@@ -29,12 +29,45 @@ The configuration list also runs `npm` scripts and a custom shell command. Previ
 
 Click a `file:line:column` path in the run console to open it.
 
+## Complete
+
+Ctrl+Space opens completions. MAGIC offers keywords, built-ins, snippets, names in the file, and project symbols. Other languages offer names from the file. Ghost text appears as you type when a local completion model is installed. Tab accepts it. The Complete button in the status bar turns ghost text off. Ctrl+Space keeps working.
+
 ## Ask
 
-If the `grok` command is on PATH, Alt+9 opens a quiet Ask panel. It stays closed until you open it, and it is absent when that command is missing. Ask reads the project and does not edit it. Edit can change files in the open folder. Enter sends. Shift+Enter inserts a line.
+Alt+9 opens Ask. It stays closed until you open it. Enter sends. Shift+Enter inserts a line.
+
+Local uses Ollama on this machine. Ask does not edit files. Edit rewrites the current selection. Grok is listed when the `grok` command is on PATH. Grok's Edit mode can change files in the open folder. Help → Local AI shows the install steps.
+
+## Local AI
+
+Ollama serves Ask and ghost text at `127.0.0.1:11434`. Local mode does not send the prompt to a cloud model.
+
+```bash
+curl -fsSL https://ollama.com/install.sh | sh
+systemctl --user enable --now ollama
+```
+
+Code help:
+
+```bash
+ollama pull qwen3.5:4b
+ollama create coder -f ai/coder.Modelfile
+```
+
+Ghost text:
+
+```bash
+ollama pull qwen2.5-coder:1.5b
+ollama create complete -f ai/complete.Modelfile
+```
+
+`coder` is the Ask default. `complete` is the ghost-text model. `ai/coder.Modelfile` sets `num_gpu 0` so a 2 GB GPU is left alone. Delete that line on a larger GPU. `ai/writer.Modelfile` is an optional writing model. `local-ai-status` prints the server and the installed models.
+
+MAGIC Studio talks to a server that is already running. It prefers `coder` or `qwen3.5` for Ask, and `complete` or `qwen2.5-coder` for ghost text. A chat model that is already loaded can also finish a short completion.
 
 ## Keys
 
 Ctrl+Shift+A or Ctrl+Shift+P opens the command list. Ctrl+P opens a file. Ctrl+Shift+F searches the folder. Alt+1, Alt+3, and Alt+7 switch the side panel. Alt+9 toggles Ask when it is installed. Alt+F12 or Ctrl+` toggles the terminal. Ctrl+D duplicates a line. Ctrl+Y deletes a line. Shift+F6 renames a name in the file. Ctrl+B jumps to a declaration. Ctrl+F2 stops a run.
 
-The editor uses a dark theme. Settings for font size, indent, wrap, and the last folder are stored under the app's user data.
+The editor starts on the black theme. Settings for theme, font size, indent, wrap, ghost text, and the last folder are stored under the app's user data.

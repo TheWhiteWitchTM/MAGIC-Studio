@@ -28,7 +28,14 @@ export const state = {
 };
 
 export function register(id, fn, meta = {}) {
-  state.commands.set(id, { id, fn, title: meta.title || id, shortcut: meta.shortcut || '', group: meta.group || 'Other' });
+  state.commands.set(id, {
+    id,
+    fn,
+    title: meta.title || id,
+    shortcut: meta.shortcut || '',
+    group: meta.group || 'Other',
+    menu: meta.menu !== false,
+  });
 }
 
 export function run(id, payload) {

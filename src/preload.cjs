@@ -8,6 +8,7 @@ const channels = new Set([
   'term:data',
   'term:exit',
   'grok:event',
+  'ollama:event',
   'app:requestClose',
   'app:open',
 ]);
@@ -52,6 +53,11 @@ contextBridge.exposeInMainWorld('studio', {
   grokStart: (payload) => ipcRenderer.invoke('grok:start', payload),
   grokCancel: () => ipcRenderer.invoke('grok:cancel'),
   grokSession: (payload) => ipcRenderer.invoke('grok:session', payload),
+  ollamaStatus: () => ipcRenderer.invoke('ollama:status'),
+  ollamaStart: (payload) => ipcRenderer.invoke('ollama:start', payload),
+  ollamaCancel: () => ipcRenderer.invoke('ollama:cancel'),
+  ollamaComplete: (payload) => ipcRenderer.invoke('ollama:complete', payload),
+  setChromeTheme: (theme) => ipcRenderer.invoke('window:theme', theme || 'black'),
   pathForFile: (file) => {
     try {
       return webUtils.getPathForFile(file);

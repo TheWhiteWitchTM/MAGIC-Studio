@@ -25,6 +25,30 @@ const TERM_THEME = {
   brightWhite: '#ffffff',
 };
 
+const TERM_LIGHT = {
+  background: '#f7f7f7',
+  foreground: '#1c1c1c',
+  cursor: '#1c1c1c',
+  cursorAccent: '#f7f7f7',
+  selectionBackground: '#c6ddff',
+  black: '#1c1c1c',
+  red: '#c42736',
+  green: '#1d7a32',
+  yellow: '#8a5a00',
+  blue: '#1864d2',
+  magenta: '#8a3d8a',
+  cyan: '#0b6e75',
+  white: '#f7f7f7',
+  brightBlack: '#5c5c5c',
+  brightRed: '#d24a58',
+  brightGreen: '#2e8d42',
+  brightYellow: '#a56b10',
+  brightBlue: '#3c7ed6',
+  brightMagenta: '#a45aa4',
+  brightCyan: '#1a8a92',
+  brightWhite: '#ffffff',
+};
+
 const terms = new Map();
 const pending = new Map();
 let runTerm = null;
@@ -67,7 +91,7 @@ function createXterm(parent, onData) {
   const term = new Terminal({
     fontFamily: '"JetBrains Mono", "Fira Mono", monospace',
     fontSize: 13,
-    theme: TERM_THEME,
+    theme: document.documentElement.dataset.theme === 'light' ? TERM_LIGHT : TERM_THEME,
     cursorBlink: true,
     scrollback: 5000,
     convertEol: false,
@@ -112,6 +136,12 @@ function createXterm(parent, onData) {
   if (onData) term.onData(onData);
   try { fit.fit(); } catch { /* hidden */ }
   return { term, fit };
+}
+
+export function setTermTheme(name) {
+  const theme = name === 'light' ? TERM_LIGHT : TERM_THEME;
+  if (runTerm?.term) runTerm.term.options.theme = theme;
+  for (const item of terms.values()) item.term.options.theme = theme;
 }
 
 function looksLikeFile(text) {

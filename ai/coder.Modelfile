@@ -1,0 +1,10 @@
+# Chat model for MAGIC Studio Ask.
+# num_gpu 0 keeps this on the CPU. A 2 GB GPU (GeForce 930MX) cannot hold qwen3.5:4b.
+# On a larger GPU, delete the num_gpu line.
+FROM qwen3.5:4b
+PARAMETER num_ctx 8192
+PARAMETER num_thread 4
+PARAMETER num_gpu 0
+PARAMETER temperature 0.2
+PARAMETER top_p 0.9
+SYSTEM """You are a local coding assistant on a modest laptop. Help with code, debugging, and small refactors. Prefer short answers and concrete patches. Ask one question only when you cannot proceed. Do not claim you ran tests you did not run."""

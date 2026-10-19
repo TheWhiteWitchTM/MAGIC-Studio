@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="black">
 <head>
   <meta charset="utf-8">
   <title>MAGIC Studio</title>
@@ -14,6 +14,7 @@
     <strong>MAGIC Studio</strong>
   </div>
   <div id="app" class="no-grok">
+    <nav id="menubar" class="menubar" aria-label="Menu"></nav>
     <header class="toolbar">
       <div class="brand"><span class="spark small"></span><span>MAGIC</span><span class="dim">Studio</span></div>
       <button type="button" data-cmd="project.open" title="Open folder (Ctrl+O)">Open</button>
@@ -81,7 +82,7 @@
           <div id="welcome">
             <div class="welcome-card">
               <div class="brand large"><span class="spark"></span><span>MAGIC Studio</span></div>
-              <p>A dark IDE for MAGIC. Edit, run, and preview from the same window.</p>
+              <p>Black background, white text. Edit, run, and preview from the same window.</p>
               <div class="welcome-actions">
                 <button type="button" class="primary" data-cmd="project.open">Open folder</button>
                 <button type="button" data-cmd="project.create">New project</button>
@@ -127,7 +128,8 @@
           <span id="grok-status" class="dim">ready</span>
         </div>
         <div class="grok-tools">
-          <select id="grok-mode" title="Ask reads. Edit can change files.">
+          <select id="ask-provider" title="Local stays on this machine. Grok uses the grok command."></select>
+          <select id="grok-mode" title="Ask reads. Edit can change the selection or, with Grok, files.">
             <option value="ask">Ask</option>
             <option value="edit">Edit</option>
           </select>
@@ -154,6 +156,8 @@
       <button type="button" id="status-branch"></button>
       <button type="button" id="status-problems">No problems</button>
       <span class="grow"></span>
+      <button type="button" id="status-theme" data-cmd="view.theme" title="Toggle black and light. Starts black.">Black</button>
+      <button type="button" id="status-complete" class="on" data-cmd="view.complete" title="Toggle ghost text from the local model. Ctrl+Space still completes.">Complete</button>
       <button type="button" id="status-line">1:1</button>
       <button type="button" id="status-eol">LF</button>
       <button type="button" id="status-indent">Spaces: 2</button>

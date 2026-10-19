@@ -1,7 +1,8 @@
-:root {
+:root,
+html[data-theme="black"] {
   --bg: #000000;
   --bg-0: #000000;
-  --bg-1: #0a0a0a;
+  --bg-1: #000000;
   --bg-2: #161616;
   --line: #2a2a2a;
   --text: #ffffff;
@@ -19,6 +20,24 @@
   --ui: "Fira Sans", Ubuntu, Cantarell, "Segoe UI", sans-serif;
   --mono: "JetBrains Mono", "Fira Mono", "DejaVu Sans Mono", ui-monospace, monospace;
   color-scheme: dark;
+}
+
+html[data-theme="light"] {
+  --bg: #f7f7f7;
+  --bg-0: #ececec;
+  --bg-1: #ffffff;
+  --bg-2: #e4e4e4;
+  --line: #d0d0d0;
+  --text: #1c1c1c;
+  --bright: #000000;
+  --muted: #5c5c5c;
+  --dim: #6e6e6e;
+  --blue: #1864d2;
+  --blue-2: #d6e6ff;
+  --gold: #8a5a00;
+  --green: #1d7a32;
+  --red: #c42736;
+  color-scheme: light;
 }
 
 * { box-sizing: border-box; }
@@ -52,9 +71,26 @@ input:focus, select:focus, textarea:focus { border-color: var(--blue); }
 .spark.tiny { width: 16px; height: 16px; display: block; }
 
 #app { height: 100%; display: flex; flex-direction: column; }
+.menubar {
+  height: 28px; flex: none; display: flex; align-items: center; gap: 2px; padding: 0 6px;
+  background: var(--bg); border-bottom: 1px solid var(--line);
+}
+.menubar > button { background: transparent; color: var(--text); height: 22px; padding: 0 8px; }
+.menubar > button:hover, .menubar > button.open { background: var(--bg-2); }
+.menu-pop {
+  position: fixed; z-index: 50; min-width: 240px; background: var(--bg); color: var(--text);
+  border: 1px solid var(--line); border-radius: 6px; padding: 4px; box-shadow: 0 10px 30px #000a;
+}
+.menu-pop button {
+  display: flex; width: 100%; justify-content: space-between; gap: 16px;
+  background: transparent; text-align: left;
+}
+.menu-key { color: var(--muted); font: 11px var(--mono); }
+#status-complete.on { color: var(--green); }
+
 .toolbar {
   height: 40px; display: flex; align-items: center; gap: 6px; padding: 0 8px;
-  background: var(--bg-1); border-bottom: 1px solid var(--line); flex: none;
+  background: var(--bg); border-bottom: 1px solid var(--line); flex: none;
 }
 .brand { display: flex; align-items: center; gap: 6px; font-weight: 650; letter-spacing: 0.06em; margin-right: 6px; }
 .brand.large { font-size: 22px; letter-spacing: 0.08em; }
@@ -213,8 +249,9 @@ main { display: flex; flex-direction: column; min-width: 0; min-height: 0; backg
 #modal { position: fixed; inset: 0; background: #0008; display: grid; place-items: center; z-index: 40; }
 #modal[hidden] { display: none; }
 .modal-card { width: min(440px, calc(100vw - 32px)); background: var(--bg-1); border: 1px solid var(--line); border-radius: 8px; padding: 16px; box-shadow: 0 16px 60px #000a; }
+.modal-card.wide { width: min(640px, calc(100vw - 32px)); }
 .modal-card h2 { margin: 0 0 8px; font-size: 16px; color: var(--bright); }
-.modal-card p { margin: 0 0 12px; color: var(--muted); }
+.modal-card p { margin: 0 0 12px; color: var(--muted); white-space: pre-wrap; max-height: 60vh; overflow: auto; }
 .modal-card input { width: 100%; margin-bottom: 12px; }
 .modal-actions { display: flex; justify-content: flex-end; gap: 8px; }
 
@@ -231,6 +268,26 @@ main { display: flex; flex-direction: column; min-width: 0; min-height: 0; backg
 
 .xterm { height: 100%; }
 .xterm-viewport { background: var(--bg) !important; }
+
+html[data-theme="black"] .monaco-editor,
+html[data-theme="black"] .monaco-editor-background,
+html[data-theme="black"] .monaco-editor .margin,
+html[data-theme="black"] .monaco-editor .sticky-widget {
+  background-color: #000000 !important;
+}
+html[data-theme="black"] select,
+html[data-theme="black"] option {
+  background-color: #000000;
+  color: #ffffff;
+}
+html[data-theme="light"] .bubble.user { background: #e8e8e8; }
+html[data-theme="light"] .bubble.assistant { background: #ffffff; }
+html[data-theme="light"] .bubble pre { background: #f3f3f3; color: #1c1c1c; }
+html[data-theme="light"] .toast { background: #ffffff; color: #1c1c1c; }
+html[data-theme="light"] .tool-chip { background: #ececec; }
+html[data-theme="light"] .tree-row.active,
+html[data-theme="light"] .palette-row.active { color: #1c1c1c; }
+html[data-theme="light"] button.primary { color: #ffffff; }
 
 ::-webkit-scrollbar { width: 10px; height: 10px; }
 ::-webkit-scrollbar-thumb { background: #3c3f46; border-radius: 99px; }

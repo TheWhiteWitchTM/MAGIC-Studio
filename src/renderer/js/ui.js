@@ -11,7 +11,7 @@ export function toast(message) {
   setTimeout(() => item.remove(), 3200);
 }
 
-export function ask({ title, message = '', value = '', placeholder = '', input = false, buttons }) {
+export function ask({ title, message = '', value = '', placeholder = '', input = false, wide = false, buttons }) {
   const host = $('#modal');
   const actions = buttons || [
     { id: 'cancel', label: 'Cancel' },
@@ -20,7 +20,7 @@ export function ask({ title, message = '', value = '', placeholder = '', input =
   host.innerHTML = '';
   host.hidden = false;
   const card = document.createElement('form');
-  card.className = 'modal-card';
+  card.className = wide ? 'modal-card wide' : 'modal-card';
   const heading = document.createElement('h2');
   heading.textContent = title;
   card.appendChild(heading);

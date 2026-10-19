@@ -1,0 +1,6 @@
+# Small fill-in-the-middle model for ghost text.
+# This one can fit a 2 GB GPU. MAGIC Studio sends the fim tokens itself.
+FROM qwen2.5-coder:1.5b
+PARAMETER num_ctx 2048
+PARAMETER num_thread 4
+PARAMETER temperature 0.1

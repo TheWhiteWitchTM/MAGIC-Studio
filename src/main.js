@@ -7,6 +7,7 @@ import {
   dialog,
   ipcMain,
   Menu,
+  nativeTheme,
   protocol,
   shell,
 } from 'electron';
@@ -40,11 +41,13 @@ import {
   packPreview,
   runSpec,
 } from './services/magic.js';
+import { completeText, loadedModelNames, probeOllama, streamChat } from './services/ollama.js';
 import { hasPty, loadPty, startProcess } from './services/pty.js';
 import { loadJson, saveJson, workspacePath } from './services/store.js';
 import { DEFAULTS } from './services/store.js';
 
 app.setName('magic-studio');
+nativeTheme.themeSource = 'dark';
 
 protocol.registerSchemesAsPrivileged([
   {
@@ -92,6 +95,7 @@ let runtime = {
   extraEnv: {},
   magic: { cli: null, app: null, root: null },
   grokPath: '',
+  ollama: { ok: false, host: 'http://127.0.0.1:11434', version: '', models: [], loaded: [], chatModel: '', completeModel: '' },
   pty: false,
 };
 let launch = { project: null, file: null };
@@ -101,6 +105,9 @@ let previewDir = '';
 let runProc = null;
 let grokProc = null;
 let grokPrompt = '';
+let ollamaAbort = null;
+let completeAbort = null;
+let askGeneration = 0;
 const terms = new Map();
 let watchTimer = null;
 let watcher = null;
@@ -203,6 +210,28 @@ function stopGrok() {
   grokPrompt = '';
 }
 
+function stopOllama() {
+  if (ollamaAbort) {
+    ollamaAbort.abort();
+    ollamaAbort = null;
+  }
+  if (completeAbort) {
+    completeAbort.abort();
+    completeAbort = null;
+  }
+}
+
+function chromeIsDark() {
+  return settings.theme !== 'light';
+}
+
+function applyChromeTheme(theme) {
+  const dark = theme !== 'light';
+  nativeTheme.themeSource = dark ? 'dark' : 'light';
+  settings = { ...settings, theme: dark ? 'black' : 'light' };
+  if (win && !win.isDestroyed()) win.setBackgroundColor(dark ? '#000000' : '#f7f7f7');
+}
+
 function killTerms() {
   for (const proc of terms.values()) {
     try { proc.kill(); } catch { /* already gone */ }
@@ -267,6 +296,8 @@ function buildMenu() {
         { label: 'Terminal', accelerator: 'Alt+F12', click: sendCommand('terminal.toggle') },
         { label: 'Word Wrap', accelerator: 'Alt+Z', click: sendCommand('view.wrap') },
         { label: 'Toggle Minimap', click: sendCommand('view.minimap') },
+        { label: 'Toggle Theme', click: sendCommand('view.theme') },
+        { label: 'Toggle Ghost Text', click: sendCommand('view.complete') },
         { type: 'separator' },
         { role: 'toggleDevTools' },
         { label: 'Reload Window', click: () => win?.webContents.reload() },
@@ -298,6 +329,7 @@ function buildMenu() {
       label: 'Help',
       submenu: [
         { label: 'Keyboard Shortcuts', accelerator: 'CmdOrCtrl+Shift+Slash', click: sendCommand('help.keys') },
+        { label: 'Local AI', click: sendCommand('help.local') },
         {
           label: 'About MAGIC Studio',
           click: () => {
@@ -311,6 +343,9 @@ function buildMenu() {
                 '',
                 runtime.magic.cli ? `MAGIC  ${runtime.magic.cli}` : 'MAGIC compiler was not found',
                 ...(runtime.grokPath ? [`Ask  ${runtime.grokPath}`] : []),
+                runtime.ollama?.ok
+                  ? `Local AI  Ollama ${runtime.ollama.version}  ${(runtime.ollama.models || []).join(', ') || 'no model yet'}`
+                  : 'Local AI  Ollama is not running',
                 runtime.pty ? 'Terminal  full PTY' : 'Terminal  basic pipe',
               ].join('\n'),
             });
@@ -320,6 +355,7 @@ function buildMenu() {
     },
   ];
   Menu.setApplicationMenu(Menu.buildFromTemplate(template));
+  if (win && !win.isDestroyed()) win.setMenuBarVisibility(false);
 }
 
 function createWindow() {
@@ -332,7 +368,9 @@ function createWindow() {
     minWidth: 960,
     minHeight: 640,
     show: false,
-    backgroundColor: '#000000',
+    backgroundColor: chromeIsDark() ? '#000000' : '#f7f7f7',
+    darkTheme: chromeIsDark(),
+    autoHideMenuBar: false,
     title: 'MAGIC Studio',
     icon: path.join(appRoot, 'assets', 'icon.png'),
     webPreferences: {
@@ -343,8 +381,10 @@ function createWindow() {
       spellcheck: false,
     },
   });
+  win.setMenuBarVisibility(false);
   if (bounds.maximized) win.maximize();
   win.once('ready-to-show', () => {
+    win.setMenuBarVisibility(false);
     if (!smoke) win.show();
   });
   win.on('close', (event) => {
@@ -386,6 +426,8 @@ function registerIpc() {
     magicCli: runtime.magic.cli || runtime.magic.bin || '',
     magicRoot: runtime.magic.root || '',
     grokPath: runtime.grokPath,
+    ollama: runtime.ollama,
+    aiDir: path.join(appRoot, 'ai'),
     pty: runtime.pty,
     settings,
     home: app.getPath('home'),
@@ -405,6 +447,12 @@ function registerIpc() {
 
   ipcMain.handle('app:title', (_event, title) => {
     if (win && !win.isDestroyed()) win.setTitle(title ? `${title} — MAGIC Studio` : 'MAGIC Studio');
+  });
+
+  ipcMain.handle('window:theme', (_event, theme) => {
+    applyChromeTheme(theme);
+    persistSettings();
+    return settings.theme;
   });
 
   ipcMain.handle('dialog:folder', async (_event, title) => {
@@ -667,6 +715,80 @@ function registerIpc() {
     return true;
   });
 
+  ipcMain.handle('ollama:status', async () => {
+    runtime.ollama = await probeOllama();
+    return runtime.ollama;
+  });
+
+  ipcMain.handle('ollama:start', async (_event, payload) => {
+    if (!runtime.ollama?.ok) runtime.ollama = await probeOllama();
+    if (!runtime.ollama.ok) return { ok: false, error: 'Ollama is not running on 127.0.0.1:11434.' };
+    const model = String(payload?.model || runtime.ollama.chatModel || '');
+    if (!model) return { ok: false, error: 'No local model is installed yet. Help → Local AI has the steps.' };
+    const generation = ++askGeneration;
+    stopOllama();
+    const controller = new AbortController();
+    ollamaAbort = controller;
+    const messages = Array.isArray(payload?.messages) ? payload.messages.slice(-12) : [];
+    streamChat({
+      model,
+      messages,
+      signal: controller.signal,
+      onText: (data) => {
+        if (generation === askGeneration) send('ollama:event', { type: 'text', data });
+      },
+    }).then(() => {
+      if (generation === askGeneration) send('ollama:event', { type: 'exit' });
+    }).catch((error) => {
+      if (generation !== askGeneration) return;
+      if (error?.name === 'AbortError') send('ollama:event', { type: 'exit', cancelled: true });
+      else {
+        send('ollama:event', { type: 'error', message: error.message || 'The local model failed' });
+        send('ollama:event', { type: 'exit' });
+      }
+    }).finally(() => {
+      if (ollamaAbort === controller) ollamaAbort = null;
+    });
+    return { ok: true };
+  });
+
+  ipcMain.handle('ollama:cancel', () => {
+    askGeneration += 1;
+    stopOllama();
+    send('ollama:event', { type: 'exit', cancelled: true });
+    return true;
+  });
+
+  ipcMain.handle('ollama:complete', async (_event, payload) => {
+    if (settings.inlineComplete === false) return { ok: false, text: '' };
+    if (!runtime.ollama?.ok) runtime.ollama = await probeOllama();
+    if (!runtime.ollama.ok) return { ok: false, text: '' };
+    let model = String(payload?.model || runtime.ollama.completeModel || '');
+    if (!model && runtime.ollama.chatModel) {
+      const loaded = await loadedModelNames();
+      if (loaded.includes(runtime.ollama.chatModel)) model = runtime.ollama.chatModel;
+    }
+    if (!model) return { ok: false, text: '' };
+    if (completeAbort) completeAbort.abort();
+    const controller = new AbortController();
+    completeAbort = controller;
+    const timer = setTimeout(() => controller.abort(), 12000);
+    try {
+      const text = await completeText({
+        model,
+        prefix: String(payload?.prefix || ''),
+        suffix: String(payload?.suffix || ''),
+        signal: controller.signal,
+      });
+      return { ok: Boolean(text), text: text || '' };
+    } catch {
+      return { ok: false, text: '' };
+    } finally {
+      clearTimeout(timer);
+      if (completeAbort === controller) completeAbort = null;
+    }
+  });
+
   ipcMain.handle('grok:session', (_event, payload) => {
     if (!runtime.grokPath) return { ok: false, error: 'Ask is not available on this machine.' };
     const id = `t${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
@@ -745,10 +867,13 @@ if (!gotLock) {
     userData = app.getPath('userData');
     settingsFile = path.join(userData, 'settings.json');
     settings = loadJson(settingsFile, DEFAULTS);
+    if (settings.theme !== 'light') settings.theme = 'black';
+    applyChromeTheme(settings.theme);
     runtime.nodePath = findNode() || process.execPath;
     runtime.extraEnv = nodeEnv(runtime.nodePath);
     runtime.magic = findMagic(appRoot);
     runtime.grokPath = findGrok();
+    runtime.ollama = await probeOllama();
     runtime.pty = await loadPty();
     if (!smoke) launch = projectFromArgv(process.argv);
     if (!launch.project && settings.reopenLast && settings.lastProject && fs.existsSync(settings.lastProject)) {
@@ -761,7 +886,7 @@ if (!gotLock) {
       try {
         const data = await fs.promises.readFile(file);
         const type = MIME[path.extname(file).toLowerCase()] || 'application/octet-stream';
-        return new Response(data, { headers: { 'Content-Type': type } });
+        return new Response(data, { headers: { 'Content-Type': type, 'Cache-Control': 'no-store' } });
       } catch {
         return new Response('missing', { status: 404 });
       }
@@ -775,6 +900,7 @@ if (!gotLock) {
   app.on('window-all-closed', () => {
     stopRun();
     stopGrok();
+    stopOllama();
     killTerms();
     if (process.platform !== 'darwin') app.quit();
   });
@@ -783,6 +909,7 @@ if (!gotLock) {
     allowClose = true;
     stopRun();
     stopGrok();
+    stopOllama();
     killTerms();
   });
 }
