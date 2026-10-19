@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>MAGIC Studio</title>
+  <link rel="stylesheet" href="../../node_modules/@xterm/xterm/css/xterm.css">
+  <link rel="stylesheet" href="../../node_modules/@fontsource/jetbrains-mono/400.css">
+  <link rel="stylesheet" href="../../node_modules/@fontsource/jetbrains-mono/600.css">
+  <link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+  <div id="splash">
+    <div class="spark"></div>
+    <strong>MAGIC Studio</strong>
+  </div>
+  <div id="app" class="no-grok">
+    <header class="toolbar">
+      <div class="brand"><span class="spark small"></span><span>MAGIC</span><span class="dim">Studio</span></div>
+      <button type="button" data-cmd="project.open" title="Open folder (Ctrl+O)">Open</button>
+      <button type="button" data-cmd="file.save" title="Save (Ctrl+S)">Save</button>
+      <span class="rule"></span>
+      <select id="run-config" title="Run configuration"></select>
+      <input id="run-custom" hidden spellcheck="false" placeholder="shell command">
+      <label class="check" title="Pass --strict to MAGIC"><input id="run-strict" type="checkbox">Strict</label>
+      <button type="button" class="primary" data-cmd="run.start" title="Run (Shift+F10)">Run</button>
+      <button type="button" data-cmd="run.preview" title="Preview window (Ctrl+Shift+F10)">Preview</button>
+      <button type="button" id="run-stop" data-cmd="run.stop" title="Stop (Ctrl+F2)">Stop</button>
+      <button type="button" data-cmd="run.check" title="Check (Ctrl+F9)">Check</button>
+      <span id="crumb" class="crumb"></span>
+    </header>
+    <div class="body">
+      <nav class="activity">
+        <button type="button" data-side="explorer" title="Explorer (Alt+1)" aria-label="Explorer">
+          <svg viewBox="0 0 24 24"><path d="M4 6h6l2 2h8v10H4z"/></svg>
+        </button>
+        <button type="button" data-side="search" title="Search (Alt+3)" aria-label="Search">
+          <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="6"/><path d="M16 16l4 4"/></svg>
+        </button>
+        <button type="button" data-side="outline" title="Structure (Alt+7)" aria-label="Structure">
+          <svg viewBox="0 0 24 24"><path d="M5 6h14M5 12h10M5 18h12"/></svg>
+        </button>
+        <span class="grow"></span>
+        <button type="button" data-cmd="grok.toggle" title="Ask (Alt+9)" aria-label="Ask" hidden>
+          <svg viewBox="0 0 24 24"><path d="M6 7h12v8H9l-3 3z"/></svg>
+        </button>
+      </nav>
+      <aside class="sidebar" id="sidebar">
+        <div id="side-explorer" class="side-view">
+          <div class="side-head">
+            <strong>Explorer</strong>
+            <label class="check quiet" title="Show hidden files"><input id="hidden-toggle" type="checkbox">Hidden</label>
+          </div>
+          <input id="tree-filter" spellcheck="false" placeholder="Filter files">
+          <div id="tree" tabindex="0"></div>
+        </div>
+        <div id="side-search" class="side-view" hidden>
+          <div class="side-head"><strong>Find in files</strong></div>
+          <input id="search-query" spellcheck="false" placeholder="Search">
+          <input id="search-include" spellcheck="false" placeholder="Include, for example *.magic">
+          <div class="side-options">
+            <label class="check"><input id="search-case" type="checkbox">Match case</label>
+            <label class="check"><input id="search-regex" type="checkbox">Regex</label>
+          </div>
+          <div id="search-results"></div>
+        </div>
+        <div id="side-outline" class="side-view" hidden>
+          <div class="side-head"><strong>Structure</strong></div>
+          <div id="outline"></div>
+        </div>
+        <div id="split-side" class="split x"></div>
+      </aside>
+      <main>
+        <div id="tabs"></div>
+        <div id="editor-wrap">
+          <div id="editor"></div>
+          <div id="image-view" hidden></div>
+          <div id="empty" hidden>
+            <p>No file open.</p>
+            <p class="dim">Ctrl+P opens a file. Shift+F10 runs the current one.</p>
+          </div>
+          <div id="welcome">
+            <div class="welcome-card">
+              <div class="brand large"><span class="spark"></span><span>MAGIC Studio</span></div>
+              <p>A dark IDE for MAGIC. Edit, run, and preview from the same window.</p>
+              <div class="welcome-actions">
+                <button type="button" class="primary" data-cmd="project.open">Open folder</button>
+                <button type="button" data-cmd="project.create">New project</button>
+                <button type="button" data-cmd="project.examples">MAGIC examples</button>
+              </div>
+              <div id="recent"></div>
+            </div>
+          </div>
+        </div>
+        <section id="bottom">
+          <div id="split-bottom" class="split y"></div>
+          <div class="tool-tabs">
+            <button type="button" data-bottom="run">Run</button>
+            <button type="button" data-bottom="problems">Problems <span id="problem-count" hidden></span></button>
+            <button type="button" data-bottom="terminal">Terminal</button>
+          </div>
+          <div id="bottom-body">
+            <div id="run-view" class="tool-view">
+              <div class="tool-bar">
+                <span id="run-title">Ready</span>
+                <span id="run-status">idle</span>
+                <button type="button" id="run-clear">Clear</button>
+              </div>
+              <div id="run-term"></div>
+            </div>
+            <div id="problems-view" class="tool-view" hidden>
+              <div id="problems-list"></div>
+            </div>
+            <div id="terminal-view" class="tool-view" hidden>
+              <div class="tool-bar">
+                <div id="term-tabs"></div>
+                <button type="button" id="term-new" title="New terminal">+</button>
+              </div>
+              <div id="term-host"></div>
+            </div>
+          </div>
+        </section>
+      </main>
+      <aside class="grok" id="grok">
+        <div id="split-grok" class="split x left"></div>
+        <div class="side-head">
+          <strong>Ask</strong>
+          <span id="grok-status" class="dim">ready</span>
+        </div>
+        <div class="grok-tools">
+          <select id="grok-mode" title="Ask reads. Edit can change files.">
+            <option value="ask">Ask</option>
+            <option value="edit">Edit</option>
+          </select>
+          <select id="grok-model" title="Model"></select>
+        </div>
+        <p id="grok-note" class="dim note"></p>
+        <div class="grok-actions">
+          <button type="button" data-cmd="grok.explainFile">Explain file</button>
+          <button type="button" data-cmd="grok.explainSelection">Explain selection</button>
+          <button type="button" data-cmd="grok.session">Open session</button>
+          <button type="button" data-cmd="grok.new">New chat</button>
+        </div>
+        <div id="grok-log"></div>
+        <form id="grok-form" class="grok-form">
+          <textarea id="grok-input" rows="3" spellcheck="false" placeholder="Ask about this file. Enter sends."></textarea>
+          <div class="grok-send">
+            <button type="button" id="grok-stop" disabled>Stop</button>
+            <button type="button" id="grok-send" class="primary">Send</button>
+          </div>
+        </form>
+      </aside>
+    </div>
+    <footer class="status">
+      <button type="button" id="status-branch"></button>
+      <button type="button" id="status-problems">No problems</button>
+      <span class="grow"></span>
+      <button type="button" id="status-line">1:1</button>
+      <button type="button" id="status-eol">LF</button>
+      <button type="button" id="status-indent">Spaces: 2</button>
+      <span id="status-lang">—</span>
+      <span id="status-pty">PTY</span>
+      <span>UTF-8</span>
+    </footer>
+  </div>
+  <div id="palette" hidden>
+    <div class="palette-card">
+      <input id="palette-input" spellcheck="false" placeholder="Type a command">
+      <div id="palette-list"></div>
+    </div>
+  </div>
+  <div id="modal" hidden></div>
+  <div id="ctx" class="ctx" hidden></div>
+  <div id="toasts"></div>
+  <script src="../../node_modules/@xterm/xterm/lib/xterm.js"></script>
+  <script src="../../node_modules/@xterm/addon-fit/lib/addon-fit.js"></script>
+  <script src="../../node_modules/@xterm/addon-web-links/lib/addon-web-links.js"></script>
+  <script src="../../node_modules/monaco-editor/min/vs/loader.js"></script>
+  <script src="./boot.js"></script>
+</body>
+</html>
