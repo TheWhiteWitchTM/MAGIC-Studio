@@ -2,7 +2,12 @@
   "name": "magic-studio",
   "productName": "MAGIC Studio",
   "version": "0.1.0",
-  "description": "A dark IDE for the MAGIC language.",
+  "description": "Alpha. A dark IDE for the MAGIC language.",
+  "author": {
+    "name": "Mira (The White Witch™)",
+    "email": "thewhitewitchtm@google.com",
+    "url": "https://x.com/TheWhiteWitchTM"
+  },
   "private": true,
   "type": "module",
   "main": "src/main.js",

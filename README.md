@@ -1,6 +1,12 @@
 # MAGIC Studio
 
-A dark IDE for the MAGIC language. It is an Electron app: a project tree, a Monaco editor, a run console, and a terminal. It starts black: black background, white text, and syntax colors. The status bar says Black. Click it to switch to a light theme. The choice is remembered.
+Alpha. This is early work, and the window can still change.
+
+Mira, [The White Witch™](https://thewhitewitchtm.github.io/whitewitch/). [X](https://x.com/TheWhiteWitchTM) · [thewhitewitchtm@google.com](mailto:thewhitewitchtm@google.com) · [GitHub](https://github.com/TheWhiteWitchTM) · [YouTube](https://youtube.com/@TheWhiteWitchTM) · [Bluesky](https://bsky.app/profile/thewhitewitchtm.sociallydead.me) · [MIT License](LICENSE)
+
+A dark IDE for the MAGIC language. Electron window, project tree, Monaco editor, run console, and a terminal. It starts black: black background, white text, syntax colors on the code. The status bar says Black. Click it for the light theme. The choice is remembered.
+
+Help → About names the author and opens the MIT license.
 
 ## Start
 

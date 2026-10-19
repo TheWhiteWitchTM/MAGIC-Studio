@@ -11,7 +11,7 @@ export function toast(message) {
   setTimeout(() => item.remove(), 3200);
 }
 
-export function ask({ title, message = '', value = '', placeholder = '', input = false, wide = false, buttons }) {
+export function ask({ title, message = '', value = '', placeholder = '', input = false, wide = false, fill = null, buttons }) {
   const host = $('#modal');
   const actions = buttons || [
     { id: 'cancel', label: 'Cancel' },
@@ -24,18 +24,15 @@ export function ask({ title, message = '', value = '', placeholder = '', input =
   const heading = document.createElement('h2');
   heading.textContent = title;
   card.appendChild(heading);
-  if (message) {
-    const copy = document.createElement('p');
-    copy.textContent = message;
-    card.appendChild(copy);
-  }
+  const body = document.createElement('div');
+  card.appendChild(body);
   let field = null;
   if (input) {
     field = document.createElement('input');
     field.value = value;
     field.placeholder = placeholder;
     field.spellcheck = false;
-    card.appendChild(field);
+    body.appendChild(field);
   }
   const row = document.createElement('div');
   row.className = 'modal-actions';
@@ -55,6 +52,12 @@ export function ask({ title, message = '', value = '', placeholder = '', input =
       }
       resolve({ id, value: field ? field.value : '' });
     };
+    if (fill) fill(body, finish);
+    else if (message) {
+      const copy = document.createElement('p');
+      copy.textContent = message;
+      body.appendChild(copy);
+    }
     for (const button of actions) {
       const el = document.createElement('button');
       el.type = 'button';

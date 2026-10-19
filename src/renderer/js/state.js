@@ -15,7 +15,7 @@ export const state = {
   bottomOpen: true,
   bottomTab: 'run',
   sideW: 272,
-  bottomH: 248,
+  bottomH: 150,
   grokW: 360,
   runConfig: 'current',
   customCommand: '',

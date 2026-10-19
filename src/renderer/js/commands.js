@@ -102,6 +102,7 @@ export function registerAll() {
   register('terminal.toggle', () => toggleTerminal(), { title: 'Terminal', shortcut: 'Alt+F12', group: view });
   register('help.keys', () => openHelp(), { title: 'Keyboard shortcuts', group: 'Help' });
   register('help.local', () => showLocalHelp(), { title: 'Local AI', group: 'Help' });
+  register('help.about', () => showAbout(), { title: 'About MAGIC Studio', group: 'Help' });
 
   register('run.start', () => startRun(), { title: 'Run', shortcut: 'Shift+F10', group: runGroup });
   register('run.preview', () => preview(), { title: 'Preview', shortcut: 'Ctrl+Shift+F10', group: runGroup });
@@ -248,6 +249,76 @@ function showLocalHelp() {
     wide: true,
     buttons: [{ id: 'ok', label: 'Close', primary: true }],
   });
+}
+
+const AUTHOR_LINKS = [
+  ['X', 'https://x.com/TheWhiteWitchTM'],
+  ['thewhitewitchtm@google.com', 'mailto:thewhitewitchtm@google.com'],
+  ['GitHub', 'https://github.com/TheWhiteWitchTM'],
+  ['YouTube', 'https://youtube.com/@TheWhiteWitchTM'],
+  ['Bluesky', 'https://bsky.app/profile/thewhitewitchtm.sociallydead.me'],
+  ['Site', 'https://thewhitewitchtm.github.io/whitewitch/'],
+];
+
+function showAbout() {
+  const info = state.info || {};
+  ask({
+    title: 'MAGIC Studio',
+    wide: true,
+    buttons: [{ id: 'ok', label: 'Close', primary: true }],
+    fill(body, close) {
+      const kicker = document.createElement('p');
+      kicker.className = 'about-kicker';
+      kicker.textContent = `Alpha · ${info.version || '0.1.0'}`;
+      const copy = document.createElement('p');
+      copy.className = 'about-copy';
+      copy.textContent = 'A dark IDE for the MAGIC language. This is alpha work. The editor, the run console, and the language can still change.';
+      const name = document.createElement('p');
+      name.className = 'about-name';
+      name.textContent = 'Mira';
+      const role = document.createElement('p');
+      role.className = 'about-role';
+      role.textContent = 'The White Witch™';
+      const links = document.createElement('div');
+      links.className = 'about-links';
+      for (const [label, href] of AUTHOR_LINKS) {
+        links.appendChild(externalLink(href, label));
+      }
+      const license = document.createElement('a');
+      license.href = info.licenseFile || 'https://github.com/TheWhiteWitchTM/MAGIC-Studio/blob/main/LICENSE';
+      license.textContent = 'MIT License';
+      license.addEventListener('click', (event) => {
+        event.preventDefault();
+        const file = info.licenseFile;
+        close('ok');
+        if (file) openPath(file);
+        else window.studio.openExternal('https://github.com/TheWhiteWitchTM/MAGIC-Studio/blob/main/LICENSE');
+      });
+      links.appendChild(license);
+      const facts = document.createElement('p');
+      facts.className = 'about-facts';
+      const models = (info.ollama?.models || []).join(', ');
+      facts.textContent = [
+        info.magicCli ? `MAGIC  ${info.magicCli}` : 'MAGIC compiler was not found',
+        info.ollama?.ok
+          ? `Local AI  Ollama ${info.ollama.version}  ${models || 'no model yet'}`
+          : 'Local AI  Ollama is not running',
+        info.pty ? 'Terminal  full PTY' : 'Terminal  basic pipe',
+      ].join('\n');
+      body.append(kicker, copy, name, role, links, facts);
+    },
+  });
+}
+
+function externalLink(href, label) {
+  const link = document.createElement('a');
+  link.href = href;
+  link.textContent = label;
+  link.addEventListener('click', (event) => {
+    event.preventDefault();
+    window.studio.openExternal(href);
+  });
+  return link;
 }
 
 let openMenu = null;
@@ -568,7 +639,10 @@ function restoreWorkspace(workspace) {
   if (typeof workspace.bottomOpen === 'boolean') state.bottomOpen = workspace.bottomOpen;
   if (workspace.bottomTab) state.bottomTab = workspace.bottomTab;
   if (workspace.sizes?.side) state.sideW = workspace.sizes.side;
-  if (workspace.sizes?.bottom) state.bottomH = workspace.sizes.bottom;
+  if (workspace.sizes?.bottom) {
+    const saved = workspace.sizes.bottom;
+    state.bottomH = saved === 248 || saved === 182 ? 150 : saved;
+  }
   if (workspace.sizes?.grok) state.grokW = workspace.sizes.grok;
   if (workspace.runConfig) state.runConfig = workspace.runConfig;
   if (typeof workspace.customCommand === 'string') state.customCommand = workspace.customCommand;

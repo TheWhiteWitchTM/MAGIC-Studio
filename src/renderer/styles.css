@@ -16,7 +16,7 @@ html[data-theme="black"] {
   --red: #f75464;
   --side: 272px;
   --grok: 360px;
-  --bottom: 248px;
+  --bottom: 150px;
   --ui: "Fira Sans", Ubuntu, Cantarell, "Segoe UI", sans-serif;
   --mono: "JetBrains Mono", "Fira Mono", "DejaVu Sans Mono", ui-monospace, monospace;
   color-scheme: dark;
@@ -252,6 +252,14 @@ main { display: flex; flex-direction: column; min-width: 0; min-height: 0; backg
 .modal-card.wide { width: min(640px, calc(100vw - 32px)); }
 .modal-card h2 { margin: 0 0 8px; font-size: 16px; color: var(--bright); }
 .modal-card p { margin: 0 0 12px; color: var(--muted); white-space: pre-wrap; max-height: 60vh; overflow: auto; }
+.about-kicker { margin: 0 0 4px; color: var(--gold); font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; }
+.about-copy { margin: 0 0 14px; color: var(--text); white-space: normal; }
+.about-name { margin: 0; color: var(--bright); font-weight: 650; white-space: normal; }
+.about-role { margin: 0 0 8px; color: var(--muted); white-space: normal; }
+.about-links { display: flex; flex-wrap: wrap; gap: 6px 14px; margin: 0 0 14px; padding: 0; list-style: none; }
+.about-links a { color: var(--gold); text-decoration: none; }
+.about-links a:hover { text-decoration: underline; }
+.about-facts { margin: 0 0 12px; color: var(--muted); font: 12px/1.55 var(--mono); white-space: pre-wrap; }
 .modal-card input { width: 100%; margin-bottom: 12px; }
 .modal-actions { display: flex; justify-content: flex-end; gap: 8px; }
 
@@ -266,7 +274,7 @@ main { display: flex; flex-direction: column; min-width: 0; min-height: 0; backg
 #toasts { position: fixed; left: 50%; bottom: 36px; transform: translateX(-50%); z-index: 45; display: flex; flex-direction: column; gap: 6px; }
 .toast { background: #161616; color: var(--bright); border: 1px solid var(--line); border-radius: 6px; padding: 8px 12px; box-shadow: 0 8px 24px #0008; }
 
-.xterm { height: 100%; }
+.xterm { height: 100%; box-sizing: border-box; padding-top: 12px; }
 .xterm-viewport { background: var(--bg) !important; }
 
 html[data-theme="black"] .monaco-editor,

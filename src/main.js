@@ -330,27 +330,7 @@ function buildMenu() {
       submenu: [
         { label: 'Keyboard Shortcuts', accelerator: 'CmdOrCtrl+Shift+Slash', click: sendCommand('help.keys') },
         { label: 'Local AI', click: sendCommand('help.local') },
-        {
-          label: 'About MAGIC Studio',
-          click: () => {
-            dialog.showMessageBox(win, {
-              type: 'info',
-              title: 'MAGIC Studio',
-              message: 'MAGIC Studio',
-              detail: [
-                `Version ${version()}`,
-                'A dark IDE for the MAGIC language.',
-                '',
-                runtime.magic.cli ? `MAGIC  ${runtime.magic.cli}` : 'MAGIC compiler was not found',
-                ...(runtime.grokPath ? [`Ask  ${runtime.grokPath}`] : []),
-                runtime.ollama?.ok
-                  ? `Local AI  Ollama ${runtime.ollama.version}  ${(runtime.ollama.models || []).join(', ') || 'no model yet'}`
-                  : 'Local AI  Ollama is not running',
-                runtime.pty ? 'Terminal  full PTY' : 'Terminal  basic pipe',
-              ].join('\n'),
-            });
-          },
-        },
+        { label: 'About MAGIC Studio', click: sendCommand('help.about') },
       ],
     },
   ];
@@ -435,6 +415,7 @@ function registerIpc() {
     examples: fs.existsSync(path.resolve(appRoot, '../MAGIC/examples'))
       ? path.resolve(appRoot, '../MAGIC/examples')
       : '',
+    licenseFile: path.join(appRoot, 'LICENSE'),
   }));
 
   ipcMain.handle('app:closeResult', (_event, allow) => {
