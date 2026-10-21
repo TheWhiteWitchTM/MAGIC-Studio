@@ -1,4 +1,4 @@
-import { state, register, baseName, listCommands, run } from './state.js';
+import { state, register, baseName, listCommands, run, typeMode } from './state.js';
 import {
   activeTab,
   checkTab,
@@ -425,7 +425,8 @@ async function startRun() {
       kind: 'file',
       file: tab.path,
       cwd: runWorkingDirectory(tab.path),
-      strict: Boolean(state.settings.strict),
+      strict: typeMode() === 'strict',
+      types: typeMode(),
       ...size,
     };
   }
@@ -699,10 +700,13 @@ export function bindChrome() {
     state.customCommand = event.target.value;
     saveWorkspace();
   });
-  document.getElementById('run-strict').checked = Boolean(state.settings.strict);
-  document.getElementById('run-strict').addEventListener('change', (event) => {
-    state.settings.strict = event.target.checked;
-    window.studio.settingsSet({ strict: state.settings.strict });
+  const typeSelect = document.getElementById('run-types');
+  typeSelect.value = typeMode();
+  typeSelect.addEventListener('change', (event) => {
+    const types = event.target.value;
+    state.settings.types = types;
+    state.settings.strict = types === 'strict';
+    window.studio.settingsSet({ types, strict: state.settings.strict });
   });
   document.getElementById('run-stop').disabled = true;
   for (const button of document.querySelectorAll('[data-cmd]')) {

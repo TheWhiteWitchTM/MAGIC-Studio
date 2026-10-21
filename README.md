@@ -31,7 +31,7 @@ Shift+F10 runs the active file.
 | `.py` | `python3` |
 | `.sh` | `bash` |
 
-The configuration list also runs `npm` scripts and a custom shell command. Preview (Ctrl+Shift+F10) packs a MAGIC script into a window. Check (Ctrl+F9) compiles the buffer and lists problems. Strict passes `--strict`.
+The configuration list also runs `npm` scripts and a custom shell command. Preview (Ctrl+Shift+F10) packs a MAGIC script into a window. Check (Ctrl+F9) compiles the buffer and lists problems. The Types menu is none, lazy, basic, or strict. Strict passes `--strict`. Lazy and basic pass `--types`.
 
 Click a `file:line:column` path in the run console to open it.
 

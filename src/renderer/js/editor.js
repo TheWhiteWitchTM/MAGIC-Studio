@@ -1,4 +1,4 @@
-import { state, baseName, dirName, languageOf, relativePath } from './state.js';
+import { state, baseName, dirName, languageOf, relativePath, typeMode } from './state.js';
 import { defineStudioThemes, editorThemeId } from './theme.js';
 import { ask, toast } from './ui.js';
 
@@ -19,8 +19,11 @@ const MODULES = [
   ['sound', 'Tones and notes'],
   ['hex', 'Hex grids'],
   ['games', 'Loops, keys, scenes, and scores'],
-  ['strict', 'Check the types and the visibility you wrote'],
-  ['normal', 'Turn the strict check off for this file'],
+  ['none', 'Do not check types'],
+  ['lazy', 'Check a written type on the line that wrote it'],
+  ['basic', 'Check a written type when the name is used'],
+  ['strict', 'Check written types, and private, when they are used'],
+  ['normal', 'Turn the type check off for this file'],
 ];
 const DOCS = {
   fn: 'A function. `end` closes it.',
@@ -713,7 +716,8 @@ export async function checkTab(tab = state.active, { quiet = false } = {}) {
   try {
     const result = await window.studio.check({
       file: tab.path,
-      strict: Boolean(state.settings.strict),
+      strict: typeMode() === 'strict',
+      types: typeMode(),
       content: tab.model.getValue(),
     });
     mergeProblems(tab.path, result.problems || []);

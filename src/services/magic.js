@@ -51,18 +51,31 @@ export function findGrok() {
   return '';
 }
 
-export function runSpec(file, { nodePath, magic, strict, cwd }) {
+function resolvedType(types, strict) {
+  if (types === 'lazy' || types === 'basic' || types === 'strict') return types;
+  return strict ? 'strict' : 'none';
+}
+
+function pushTypeFlag(args, { types, strict }) {
+  const mode = resolvedType(types, strict);
+  if (mode === 'none') return args;
+  if (mode === 'strict') args.push('--strict');
+  else args.push('--types', mode);
+  return args;
+}
+
+export function runSpec(file, { nodePath, magic, strict, types, cwd }) {
   const ext = path.extname(file).toLowerCase();
   if (ext === '.magic') {
+    const mode = resolvedType(types, strict);
+    const suffix = mode === 'none' ? '' : mode === 'strict' ? ' --strict' : ` --types ${mode}`;
     if (magic?.cli) {
-      const args = [magic.cli, 'run', file];
-      if (strict) args.push('--strict');
-      return { cmd: nodePath, args, cwd, label: `magic run ${path.basename(file)}${strict ? ' --strict' : ''}` };
+      const args = pushTypeFlag([magic.cli, 'run', file], { types, strict });
+      return { cmd: nodePath, args, cwd, label: `magic run ${path.basename(file)}${suffix}` };
     }
     if (magic?.bin) {
-      const args = ['run', file];
-      if (strict) args.push('--strict');
-      return { cmd: magic.bin, args, cwd, label: `magic run ${path.basename(file)}` };
+      const args = pushTypeFlag(['run', file], { types, strict });
+      return { cmd: magic.bin, args, cwd, label: `magic run ${path.basename(file)}${suffix}` };
     }
     throw new Error('The MAGIC compiler was not found. Build the MAGIC project, then reopen the folder.');
   }
@@ -92,7 +105,7 @@ function spawnNode(nodePath, args, { cwd, extraEnv }) {
   });
 }
 
-export function checkSource({ nodePath, extraEnv, magic, file, strict = false, content = null }) {
+export function checkSource({ nodePath, extraEnv, magic, file, strict = false, types = 'none', content = null }) {
   return new Promise((resolve) => {
     const ext = path.extname(file).toLowerCase();
     if (ext === '.json') {
@@ -166,7 +179,7 @@ export function checkSource({ nodePath, extraEnv, magic, file, strict = false, c
     const args = magic.cli
       ? [magic.cli, 'compile', target, '-o', out]
       : ['compile', target, '-o', out];
-    if (strict) args.push('--strict');
+    pushTypeFlag(args, { types, strict });
     const cmd = magic.cli ? nodePath : magic.bin;
     const child = spawnNode(cmd, args, { cwd: path.dirname(file), extraEnv });
     let stderr = '';

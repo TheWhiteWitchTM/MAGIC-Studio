@@ -15,6 +15,7 @@ export const DEFAULTS = {
   ollamaModel: '',
   autoCheck: true,
   strict: false,
+  types: 'none',
   reopenLast: true,
   showHidden: false,
   recent: [],

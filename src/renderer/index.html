@@ -22,7 +22,14 @@
       <span class="rule"></span>
       <select id="run-config" title="Run configuration"></select>
       <input id="run-custom" hidden spellcheck="false" placeholder="shell command">
-      <label class="check" title="Pass --strict to MAGIC"><input id="run-strict" type="checkbox">Strict</label>
+      <label class="check" title="none looks away. lazy checks the line. basic checks uses. strict also checks private.">Types
+        <select id="run-types">
+          <option value="none">None</option>
+          <option value="lazy">Lazy</option>
+          <option value="basic">Basic</option>
+          <option value="strict">Strict</option>
+        </select>
+      </label>
       <button type="button" class="primary" data-cmd="run.start" title="Run (Shift+F10)">Run</button>
       <button type="button" data-cmd="run.preview" title="Preview window (Ctrl+Shift+F10)">Preview</button>
       <button type="button" id="run-stop" data-cmd="run.stop" title="Stop (Ctrl+F2)">Stop</button>

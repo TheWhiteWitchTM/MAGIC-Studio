@@ -519,6 +519,7 @@ function registerIpc() {
     magic: runtime.magic,
     file: payload.file,
     strict: Boolean(payload.strict),
+    types: payload.types,
     content: payload.content,
   }));
 
@@ -541,6 +542,7 @@ function registerIpc() {
           nodePath: runtime.nodePath,
           magic: runtime.magic,
           strict: Boolean(payload.strict),
+          types: payload.types,
           cwd,
         });
         if (spec.html) {

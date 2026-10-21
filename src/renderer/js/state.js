@@ -27,6 +27,17 @@ export const state = {
   fileIndex: null,
 };
 
+const TYPE_MODES = new Set(['none', 'lazy', 'basic', 'strict']);
+
+/** A saved `strict: true` from before the dial still means strict. */
+export function typeMode(settings = state.settings) {
+  const named = settings?.types;
+  if (named === 'lazy' || named === 'basic' || named === 'strict') return named;
+  if (settings?.strict) return 'strict';
+  if (TYPE_MODES.has(named)) return named;
+  return 'none';
+}
+
 export function register(id, fn, meta = {}) {
   state.commands.set(id, {
     id,
